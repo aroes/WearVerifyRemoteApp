@@ -77,9 +77,6 @@ public class MainWearActivity extends WearableActivity implements
     private static final String PLAY_STORE_APP_URI =
             "market://details?id=com.example.android.wearable.wear.wearverifyremoteapp";
 
-    // TODO: Replace with your links/packages.
-    private static final String APP_STORE_APP_URI =
-            "https://itunes.apple.com/us/app/android-wear/id986496028?mt=8";
 
     // Result from sending RemoteIntent to phone to open app in play/app store.
     private final ResultReceiver mResultReceiver = new ResultReceiver(new Handler()) {
@@ -123,7 +120,7 @@ public class MainWearActivity extends WearableActivity implements
         mRemoteOpenButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                openAppInStoreOnPhone();
+                doRemoteIntentOnPhone();
             }
         });
 
@@ -239,8 +236,8 @@ public class MainWearActivity extends WearableActivity implements
         }
     }
 
-    private void openAppInStoreOnPhone() {
-        Log.d(TAG, "openAppInStoreOnPhone()");
+    private void doRemoteIntentOnPhone() {
+        Log.d(TAG, "doRemoteIntentOnPhone()");
 
         int playStoreAvailabilityOnPhone =
                 PlayStoreAvailability.getPlayStoreAvailabilityOnPhone(getApplicationContext());
@@ -260,22 +257,6 @@ public class MainWearActivity extends WearableActivity implements
                 RemoteIntent.startRemoteActivity(
                         getApplicationContext(),
                         intentAndroid,
-                        mResultReceiver);
-                break;
-
-            // Assume iPhone (iOS device) or Android without Play Store (not supported right now).
-            case PlayStoreAvailability.PLAY_STORE_ON_PHONE_UNAVAILABLE:
-                Log.d(TAG, "\tPLAY_STORE_ON_PHONE_UNAVAILABLE");
-
-                // Create Remote Intent to open App Store listing of app on iPhone.
-                Intent intentIOS =
-                        new Intent(Intent.ACTION_VIEW)
-                                .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .setData(Uri.parse(APP_STORE_APP_URI));
-
-                RemoteIntent.startRemoteActivity(
-                        getApplicationContext(),
-                        intentIOS,
                         mResultReceiver);
                 break;
 
